@@ -41,3 +41,42 @@ bash infra/startContainer.sh verl-train '' quay.io/ascend/verl:<tag>
 | 当前仓库的 `WORK_DIR` | `/workspace` | 配置、脚本与代码 |
 
 训练前请确认宿主机执行 `npu-smi info` 能识别到期望的 Ascend 910 卡，并在容器内复查设备可见性。
+
+## 离线拉取镜像
+
+[`infra/docker_pull.sh`](infra/docker_pull.sh) 是一个独立实现的 Docker Registry HTTP API v2 拉取工具，
+参考了 [NotGlop/docker-drag](https://github.com/NotGlop/docker-drag) 的使用场景，但不包含其代码。
+它将镜像保存为 OCI image layout tar；Docker 20.10 及以上版本可通过 `docker load` 导入。
+
+运行环境需要 `bash`、`curl`、`jq` 和 GNU userland（包括 `sha256sum`、`tar`、`stat`、`date`、
+`awk`、`sed`、`tr`）。下载完成后，脚本会校验每个 blob 的大小和 SHA-256 digest。
+
+```bash
+# 默认在当前目录创建 OCI archive
+bash infra/docker_pull.sh quay.io/ascend/verl:verl-8.5.0-a3-ubuntu22.04-py3.11-v0.7.1
+
+# 指定 archive 的保存路径，再导入 Docker
+DOCKER_PULL_OUTPUT=/mnt/model/verl.oci.tar \
+  bash infra/docker_pull.sh quay.io/ascend/verl:verl-8.5.0-a3-ubuntu22.04-py3.11-v0.7.1
+docker load -i /mnt/model/verl.oci.tar
+```
+
+每个 layer 下载时会显示已下载大小、总大小、百分比和从该 layer 开始下载起计算的平均速度，例如：
+
+```text
+9f3a12bc4567: [============            ]  50% 2.0 GiB / 4.0 GiB 83.7 MiB/s
+```
+
+默认平台由当前机器架构推断为 `linux/amd64` 或 `linux/arm64`。拉取 multi-arch 镜像的其他平台时，
+可显式指定 `DOCKER_PULL_PLATFORM`：
+
+```bash
+DOCKER_PULL_PLATFORM=linux/arm64 \
+  bash infra/docker_pull.sh quay.io/namespace/image:tag
+```
+
+速度与进度辅助函数的离线测试可用以下命令执行：
+
+```bash
+bash infra/tests/docker_pull_test.sh
+```
