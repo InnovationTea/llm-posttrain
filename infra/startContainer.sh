@@ -10,72 +10,64 @@ CONTAINER_NAME="$1"
 DEVICE_IDS="$2"
 IMAGE="${3:-$DEFAULT_IMAGE}"
 
-if [ -z "${CONTAINER_NAME}" ]; then
+if [ -z "$CONTAINER_NAME" ]; then
   echo "Usage: $0 <container_name> [device_ids] [image]"
-  echo ""
-  echo "Examples:"
-  echo "  $0 train1"
-  echo "      使用全部 NPU，默认镜像"
-  echo ""
-  echo "  $0 train2 0,1"
-  echo "      使用 NPU 0、1，默认镜像"
-  echo ""
-  echo "  $0 train3 '' swr.xxx.com/xxx:tag"
-  echo "      使用全部 NPU，自定义镜像"
+  echo "Example:"
+  echo "  $0 train1                     # 使用全部 NPU，默认镜像"
+  echo "  $0 train2 0,1                 # 使用 NPU 0、1"
+  echo "  $0 train3 '' myimage:latest   # 使用全部 NPU，自定义镜像"
   exit 1
 fi
 
-cd "${WORK_DIR}" || {
-  echo "Error: WORK_DIR does not exist: ${WORK_DIR}"
-  exit 1
-}
+cd "${WORK_DIR}" || exit 1
 
-# ===== 构造 NPU device 参数 =====
+# ===== 构造 device 参数 =====
 DEVICE_ARGS=()
 VISIBLE_DEVICE_IDS=()
 
-if [ -n "${DEVICE_IDS}" ]; then
-  # 指定 NPU，例如 0,1
-  for id in $(echo "${DEVICE_IDS}" | tr ',' ' '); do
+if [ -n "$DEVICE_IDS" ]; then
+  # 指定 NPU，例如：0,1
+  # 按数字顺序排序，避免输入 0,10,2 时顺序异常
+  while IFS= read -r id; do
     dev="/dev/davinci${id}"
 
-    if [ ! -e "${dev}" ]; then
-      echo "Error: NPU device does not exist: ${dev}"
+    if [ ! -e "$dev" ]; then
+      echo "Error: NPU device does not exist: $dev"
       exit 1
     fi
 
-    DEVICE_ARGS+=(--device="${dev}")
-    VISIBLE_DEVICE_IDS+=("${id}")
-  done
+    DEVICE_ARGS+=(--device="$dev")
+    VISIBLE_DEVICE_IDS+=("$id")
+  done < <(echo "$DEVICE_IDS" | tr ',' '\n' | sort -n)
+
 else
-  # 未指定 NPU：自动扫描并挂载所有 /dev/davinci<N>
+  # 未指定 NPU：自动挂载全部 /dev/davinci<N>
+  # 注意：glob 默认按字典序排序，会出现 0,1,10,11,2...
+  # sort -V 可保证自然数字顺序：0,1,2,...,10,11...
   shopt -s nullglob
 
-  for dev in /dev/davinci[0-9]*; do
+  while IFS= read -r dev; do
     id="${dev#/dev/davinci}"
-    DEVICE_ARGS+=(--device="${dev}")
-    VISIBLE_DEVICE_IDS+=("${id}")
-  done
+    DEVICE_ARGS+=(--device="$dev")
+    VISIBLE_DEVICE_IDS+=("$id")
+  done < <(printf '%s\n' /dev/davinci[0-9]* | sort -V)
 
   shopt -u nullglob
 
   if [ "${#DEVICE_ARGS[@]}" -eq 0 ]; then
-    echo "Error: No NPU devices found, expected /dev/davinci<N>."
+    echo "Error: No /dev/davinci<N> NPU devices found."
     exit 1
   fi
 fi
 
-# 例如：0,1,2,3
 ASCEND_DEVICES=$(IFS=,; echo "${VISIBLE_DEVICE_IDS[*]}")
 
-echo "========================================"
-echo "Container name: ${CONTAINER_NAME}"
-echo "Image:          ${IMAGE}"
-echo "NPU devices:    ${ASCEND_DEVICES}"
-echo "========================================"
+echo "Starting container: ${CONTAINER_NAME}"
+echo "Visible NPU devices: ${ASCEND_DEVICES}"
 
 # ===== 启动容器 =====
 docker run -itd \
+  --privileged \
   --cap-add=SYS_PTRACE \
   --net=host \
   "${DEVICE_ARGS[@]}" \
