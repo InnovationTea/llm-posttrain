@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "images": [
+    {
+      "id": "ascend-verl",
+      "reference": "quay.io/ascend/verl:verl-9.0.0-a3-ubuntu22.04-py3.11-v0.8.0",
+      "platforms": ["linux/amd64", "linux/arm64"]
+    }
+  ]
+}

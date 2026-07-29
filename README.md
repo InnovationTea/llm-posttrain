@@ -80,3 +80,37 @@ DOCKER_PULL_PLATFORM=linux/arm64 \
 ```bash
 bash infra/tests/docker_pull_test.sh
 ```
+
+## GitHub Release 离线镜像
+
+[`infra/images/images.json`](infra/images/images.json) 是 Release 镜像清单。每个条目
+使用稳定的 `id`、带 tag 或 digest 的公开 Registry `reference`，以及需要生成的
+`platforms`。发布工作流通过手动 `workflow_dispatch` 触发：更新清单并提交到要发布
+的分支后，在 GitHub Actions 中运行 `Release Image Assets`，选择该分支，并输入一个
+此前未发布的 `release_tag`，例如 `v0.1.0`。
+
+工作流会在所选分支的 HEAD 创建并推送 annotated Git tag，创建同名 Draft Release，
+通过 GitHub 的自动生成功能写入 Release notes，然后为清单中的每个镜像和平台生成
+离线 OCI archive。所有资产上传成功后，Draft Release 才会发布。镜像 archive 通常
+大于 GitHub 单附件 2 GiB 上限，因此发布的是 1.9 GiB 以下的分卷，而不是完整 tar。
+工作流失败时 tag 和 Draft Release 会保留；使用同一分支提交和同一 `release_tag`
+重试可继续完成。已发布的 Release 不会被工作流覆盖。
+
+Release 附件包括各平台的 `.oci.tar.part-000` 分卷、`SHA256SUMS.parts`、
+`SHA256SUMS.archives`、`release-images.json` 和 `load-image.sh`。只下载训练机
+架构对应的所有分卷及这几个公共文件。例如，导入 `ascend-verl` 的 amd64 版本：
+
+```bash
+# 下载 ascend-verl--linux-amd64 的所有 part 文件和上述校验、脚本文件后执行。
+bash load-image.sh ascend-verl linux/amd64 .
+```
+
+脚本会先校验分卷，重建 archive，再校验 archive 并执行 `docker load`。如需手动
+执行同样的过程：
+
+```bash
+grep 'ascend-verl--linux-amd64.oci.tar.part-' SHA256SUMS.parts | sha256sum -c -
+cat ascend-verl--linux-amd64.oci.tar.part-* > ascend-verl--linux-amd64.oci.tar
+grep 'ascend-verl--linux-amd64.oci.tar$' SHA256SUMS.archives | sha256sum -c -
+docker load -i ascend-verl--linux-amd64.oci.tar
+```

@@ -357,6 +357,32 @@ write_oci_index() {
     }' >"${destination}"
 }
 
+write_pull_metadata() {
+  local archive_path="$1"
+  local manifest_digest="$2"
+  local platform archive_sha256 archive_size
+
+  [[ -n "${DOCKER_PULL_METADATA_OUTPUT:-}" ]] || return
+
+  platform="${DOCKER_PULL_PLATFORM:-linux/$(host_architecture)}"
+  archive_sha256="$(sha256sum "${archive_path}" | awk '{print $1}')"
+  archive_size="$(file_size "${archive_path}")"
+
+  jq -n \
+    --arg image_reference "${IMAGE_REFERENCE}" \
+    --arg platform "${platform}" \
+    --arg manifest_digest "${manifest_digest}" \
+    --arg archive_sha256 "${archive_sha256}" \
+    --argjson archive_size "${archive_size}" \
+    '{
+      imageReference: $image_reference,
+      platform: $platform,
+      manifestDigest: $manifest_digest,
+      archiveSha256: $archive_sha256,
+      archiveSize: $archive_size
+    }' >"${DOCKER_PULL_METADATA_OUTPUT}"
+}
+
 usage() {
   cat <<'EOF'
 Usage:
@@ -449,6 +475,8 @@ main() {
   [[ "${output_path}" = /* ]] || output_path="${PWD}/${output_path}"
 
   tar -C "${layout}" -cf "${output_path}" .
+
+  write_pull_metadata "${output_path}" "sha256:${manifest_digest}"
 
   printf 'Saved OCI image archive: %s\n' "${output_path}"
   printf 'Load it with: docker load -i %s\n' "${output_path}"
