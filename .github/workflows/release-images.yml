@@ -21,10 +21,25 @@ jobs:
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
       release_tag: ${{ steps.release.outputs.release_tag }}
+      minimum_free_gib: ${{ steps.capacity.outputs.minimum_free_gib }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - id: capacity
+        shell: bash
+        run: |
+          set -euo pipefail
+          minimum_free_gib="$(jq -er '
+            .minimumRunnerFreeGiB as $capacity
+            | if ($capacity | type) != "number" or $capacity < 50 or ($capacity | floor) != $capacity then
+                error("minimumRunnerFreeGiB must be an integer of at least 50")
+              else
+                $capacity
+              end
+          ' infra/images/images.json)"
+          printf 'minimum_free_gib=%s\n' "${minimum_free_gib}" >>"${GITHUB_OUTPUT}"
 
       - id: release
         env:
@@ -120,13 +135,15 @@ jobs:
           ref: ${{ needs.create-release.outputs.release_tag }}
 
       - name: Check runner capacity
+        env:
+          MINIMUM_FREE_GIB: ${{ needs.create-release.outputs.minimum_free_gib }}
         shell: bash
         run: |
           set -euo pipefail
           available_kib="$(df -Pk "${GITHUB_WORKSPACE}" | awk 'NR == 2 { print $4 }')"
-          required_kib=$((50 * 1024 * 1024))
+          required_kib=$((MINIMUM_FREE_GIB * 1024 * 1024))
           ((available_kib >= required_kib)) || {
-            echo 'The release-images runner needs at least 50 GiB of free disk space.' >&2
+            echo "The release-images runner needs at least ${MINIMUM_FREE_GIB} GiB of free disk space." >&2
             exit 1
           }
 
@@ -156,13 +173,15 @@ jobs:
           ref: ${{ needs.create-release.outputs.release_tag }}
 
       - name: Check runner capacity
+        env:
+          MINIMUM_FREE_GIB: ${{ needs.create-release.outputs.minimum_free_gib }}
         shell: bash
         run: |
           set -euo pipefail
           available_kib="$(df -Pk "${GITHUB_WORKSPACE}" | awk 'NR == 2 { print $4 }')"
-          required_kib=$((50 * 1024 * 1024))
+          required_kib=$((MINIMUM_FREE_GIB * 1024 * 1024))
           ((available_kib >= required_kib)) || {
-            echo 'The release-images runner needs at least 50 GiB of free disk space.' >&2
+            echo "The release-images runner needs at least ${MINIMUM_FREE_GIB} GiB of free disk space." >&2
             exit 1
           }
 

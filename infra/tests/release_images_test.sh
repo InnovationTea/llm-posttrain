@@ -73,6 +73,14 @@ assert_file "${output_dir}/demo--linux-amd64.oci.tar"
 [[ "$(tr '\n' ' ' <"${TEST_DIR}/docker.args")" == "load -i ${output_dir}/demo--linux-amd64.oci.tar " ]] ||
   fail 'loader did not invoke docker load for reconstructed archive'
 
+printf 'x' >"${output_dir}/demo--linux-amd64.oci.tar.part-000"
+if PATH="${TEST_DIR}/bin:${PATH}" \
+  DOCKER_ARGS_PATH="${TEST_DIR}/tampered-docker.args" \
+  bash "${REPOSITORY_ROOT}/infra/images/load-release-image.sh" \
+    demo linux/amd64 "${output_dir}" >/dev/null 2>&1; then
+  fail 'loader accepted a tampered archive part'
+fi
+
 metadata_archive="${TEST_DIR}/metadata.oci.tar"
 metadata_output="${TEST_DIR}/pull-metadata.json"
 printf 'metadata' >"${metadata_archive}"
@@ -110,6 +118,11 @@ assert_contains "${workflow}" '--draft=false'
 assert_contains "${workflow}" '[self-hosted, linux, x64, release-images]'
 assert_contains "${workflow}" 'df -Pk'
 assert_contains "${workflow}" 'image platforms must be unique'
+assert_contains "${workflow}" 'minimumRunnerFreeGiB'
+
+image_config="${REPOSITORY_ROOT}/infra/images/images.json"
+[[ "$(jq -r '.minimumRunnerFreeGiB' "${image_config}")" == '50' ]] ||
+  fail 'images.json must define the minimum runner capacity'
 
 readme="${REPOSITORY_ROOT}/README.md"
 assert_contains "${readme}" 'images.json'

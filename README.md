@@ -91,9 +91,10 @@ bash infra/tests/docker_pull_test.sh
 
 镜像构建和附件发布均运行在标签为 `release-images` 的 Linux x64 self-hosted
 runner 上，而非标准 GitHub-hosted runner。该 runner 在每次 job 开始时必须至少有
-50 GiB 可用磁盘空间；当前 `verl` 镜像在导出期间会同时保留 OCI layout、archive 和
-分卷。若在 `images.json` 中加入更多或更大的镜像，应按同一次 Release 的总分卷大小
-增加 runner 磁盘容量。
+`minimumRunnerFreeGiB` 指定的可用磁盘空间，当前为 50 GiB；当前 `verl` 镜像在导出
+期间会同时保留 OCI layout、archive 和分卷。若在 `images.json` 中加入更多或更大的
+镜像，必须按同一次 Release 的总分卷大小增大 `minimumRunnerFreeGiB`，并为 runner
+实际配置至少该容量。
 
 工作流会在所选分支的 HEAD 创建并推送 annotated Git tag，创建同名 Draft Release，
 通过 GitHub 的自动生成功能写入 Release notes，然后为清单中的每个镜像和平台生成
