@@ -107,6 +107,9 @@ assert_contains "${workflow}" '--draft --generate-notes'
 assert_contains "${workflow}" 'compression-level: 0'
 assert_contains "${workflow}" 'gh release edit'
 assert_contains "${workflow}" '--draft=false'
+assert_contains "${workflow}" '[self-hosted, linux, x64, release-images]'
+assert_contains "${workflow}" 'df -Pk'
+assert_contains "${workflow}" 'image platforms must be unique'
 
 readme="${REPOSITORY_ROOT}/README.md"
 assert_contains "${readme}" 'images.json'
@@ -115,5 +118,7 @@ assert_contains "${readme}" 'release_tag'
 assert_contains "${readme}" 'SHA256SUMS.parts'
 assert_contains "${readme}" 'SHA256SUMS.archives'
 assert_contains "${readme}" 'load-image.sh'
+assert_contains "${readme}" 'release-images'
+assert_contains "${readme}" '50 GiB'
 
 printf 'PASS: release image archive build\n'

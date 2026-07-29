@@ -87,6 +87,8 @@ jobs:
               ([.platforms[] | select(valid_platform | not)] | length > 0)
             )] | length) > 0 then
               error("each image needs an id, reference, and linux platforms")
+            elif ([.images[] | select((.platforms | unique | length) != (.platforms | length))] | length) > 0 then
+              error("image platforms must be unique")
             elif ([.images[].id] | unique | length) != (.images | length) then
               error("image ids must be unique")
             else
@@ -107,7 +109,7 @@ jobs:
 
   build-images:
     needs: create-release
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, release-images]
     strategy:
       fail-fast: false
       matrix:
@@ -116,6 +118,17 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ needs.create-release.outputs.release_tag }}
+
+      - name: Check runner capacity
+        shell: bash
+        run: |
+          set -euo pipefail
+          available_kib="$(df -Pk "${GITHUB_WORKSPACE}" | awk 'NR == 2 { print $4 }')"
+          required_kib=$((50 * 1024 * 1024))
+          ((available_kib >= required_kib)) || {
+            echo 'The release-images runner needs at least 50 GiB of free disk space.' >&2
+            exit 1
+          }
 
       - name: Export ${{ matrix.reference }} for ${{ matrix.platform }}
         shell: bash
@@ -136,11 +149,22 @@ jobs:
 
   publish-release:
     needs: [create-release, build-images]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, release-images]
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ needs.create-release.outputs.release_tag }}
+
+      - name: Check runner capacity
+        shell: bash
+        run: |
+          set -euo pipefail
+          available_kib="$(df -Pk "${GITHUB_WORKSPACE}" | awk 'NR == 2 { print $4 }')"
+          required_kib=$((50 * 1024 * 1024))
+          ((available_kib >= required_kib)) || {
+            echo 'The release-images runner needs at least 50 GiB of free disk space.' >&2
+            exit 1
+          }
 
       - uses: actions/download-artifact@v4
         with:
@@ -156,20 +180,21 @@ jobs:
         run: |
           set -euo pipefail
 
-          mkdir release-assets
+          mkdir release-metadata
           mapfile -t part_checksums < <(find downloaded-assets -type f -name '*.parts.sha256' -print | LC_ALL=C sort)
           mapfile -t archive_checksums < <(find downloaded-assets -type f -name '*.archive.sha256' -print | LC_ALL=C sort)
           mapfile -t metadata_files < <(find downloaded-assets -type f -name '*.asset.json' -print | LC_ALL=C sort)
+          mapfile -t part_files < <(find downloaded-assets -type f -name '*.oci.tar.part-*' -print | LC_ALL=C sort)
           ((${#part_checksums[@]} > 0)) || { echo 'No part checksums downloaded.' >&2; exit 1; }
           ((${#archive_checksums[@]} > 0)) || { echo 'No archive checksums downloaded.' >&2; exit 1; }
           ((${#metadata_files[@]} > 0)) || { echo 'No asset metadata downloaded.' >&2; exit 1; }
+          ((${#part_files[@]} > 0)) || { echo 'No image archive parts downloaded.' >&2; exit 1; }
 
-          cat "${part_checksums[@]}" >release-assets/SHA256SUMS.parts
-          cat "${archive_checksums[@]}" >release-assets/SHA256SUMS.archives
-          jq -s '{schemaVersion: 1, images: .}' "${metadata_files[@]}" >release-assets/release-images.json
-          cp infra/images/load-release-image.sh release-assets/load-image.sh
-          chmod +x release-assets/load-image.sh
-          find downloaded-assets -type f -name '*.oci.tar.part-*' -exec cp {} release-assets/ \;
+          cat "${part_checksums[@]}" >release-metadata/SHA256SUMS.parts
+          cat "${archive_checksums[@]}" >release-metadata/SHA256SUMS.archives
+          jq -s '{schemaVersion: 1, images: .}' "${metadata_files[@]}" >release-metadata/release-images.json
+          cp infra/images/load-release-image.sh release-metadata/load-image.sh
+          chmod +x release-metadata/load-image.sh
 
-          gh release upload "${RELEASE_TAG}" release-assets/* --clobber
+          gh release upload "${RELEASE_TAG}" "${part_files[@]}" release-metadata/* --clobber
           gh release edit "${RELEASE_TAG}" --draft=false
