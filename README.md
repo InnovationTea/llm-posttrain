@@ -28,6 +28,14 @@ bash infra/startContainer.sh verl-train-01 0,1
 bash infra/startContainer.sh verl-train '' quay.io/ascend/verl:<tag>
 ```
 
+进入容器后先执行 Ascend 环境检查。脚本会自动使用全部可见 NPU，验证 BF16 前后向和
+HCCL AllReduce：
+
+```bash
+cd /workspace
+bash infra/check_ascend_env.sh
+```
+
 脚本中的 `WORK_DIR` 默认为 `/root/workspace`；请在运行前将其改为本仓库在训练机上的绝对路径。
 
 ## 宿主机挂载
