@@ -1,10 +1,10 @@
 #!/bin/bash
 
-WORK_DIR=/root/workspace
-CONTAINER_WORK_DIR=/workspace
+WORK_DIR=${WORK_DIR:-/root/workspace}
+CONTAINER_WORK_DIR=${CONTAINER_WORK_DIR:-/workspace}
 
-# 默认镜像（A3）
-DEFAULT_IMAGE=quay.io/ascend/verl:verl-8.5.0-a3-ubuntu22.04-py3.11-v0.7.1
+# 默认镜像：Atlas A3 / CANN 9.0.0 / veRL 0.8.0 / vLLM 0.18.0
+DEFAULT_IMAGE=quay.io/ascend/verl:v0.8.0-cann9.0.0-torch_npu2.9.0post2-a3-ubuntu22.04-py3.11-vllm
 
 CONTAINER_NAME="$1"
 DEVICE_IDS="$2"
@@ -76,6 +76,7 @@ docker run -itd \
   --device=/dev/hisi_hdc \
   --shm-size=64g \
   -e ASCEND_VISIBLE_DEVICES="${ASCEND_DEVICES}" \
+  -e ASCEND_RT_VISIBLE_DEVICES="${ASCEND_DEVICES}" \
   -v /usr/local/sbin/npu-smi:/usr/local/sbin/npu-smi \
   -v /usr/local/dcmi:/usr/local/dcmi \
   -v /etc/ascend_install.info:/etc/ascend_install.info \
