@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare GSM8K as chat-style parquet files for veRL SFT."""
+"""Prepare GSM8K chat-style parquet files for the Qwen3.6 veRL SFT workflow."""
 
 from __future__ import annotations
 

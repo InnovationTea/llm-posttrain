@@ -1,3 +1,5 @@
+"""Regression tests for the Qwen3.6 GSM8K SFT workflow."""
+
 from __future__ import annotations
 
 import sys

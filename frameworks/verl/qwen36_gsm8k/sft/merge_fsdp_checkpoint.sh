@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-PROJECT_ROOT=$(cd -- "${SCRIPT_DIR}/../../.." && pwd)
+PROJECT_ROOT=$(cd -- "${SCRIPT_DIR}/../../../.." && pwd)
 
 SAVE_PATH=${SAVE_PATH:-/mnt/data/checkpoints/qwen36-27b-gsm8k-sft-v1}
 MERGED_MODEL=${MERGED_MODEL:-}
@@ -52,7 +52,7 @@ python3 -m verl.model_merger merge \
   --trust-remote-code \
   --use_cpu_initialization
 
-python3 frameworks/verl/qwen36_gsm8k/preflight.py \
+python3 frameworks/verl/qwen36_gsm8k/sft/preflight.py \
   --model-path "${MERGED_MODEL}"
 
 echo "Merge completed at $(date '+%Y-%m-%d %H:%M:%S %z')"
