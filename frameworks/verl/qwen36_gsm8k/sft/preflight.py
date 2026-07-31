@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate Ascend, Qwen3.6 metadata, chat template, and optional SFT data."""
+"""Validate Ascend, Qwen3.6 metadata, chat template, and SFT data."""
 
 from __future__ import annotations
 

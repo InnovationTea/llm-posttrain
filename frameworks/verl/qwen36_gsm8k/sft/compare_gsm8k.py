@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare paired before/after GSM8K evaluation results."""
+"""Compare paired before/after results for the Qwen3.6 GSM8K SFT workflow."""
 
 from __future__ import annotations
 

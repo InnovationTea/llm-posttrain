@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run deterministic GSM8K generation with vLLM and save per-example results."""
+"""Run deterministic evaluation for the Qwen3.6 GSM8K SFT workflow."""
 
 from __future__ import annotations
 

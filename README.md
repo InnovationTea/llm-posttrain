@@ -2,6 +2,12 @@
 
 Ascend 910 上进行 LLM SFT 与 RL 实验的训练仓库。当前以 `verl` 为首个训练框架。
 
+## 已验证实验
+
+- [Qwen3.6-27B GSM8K SFT 完整流程](docs/qwen36_gsm8k_sft.md)
+- [Qwen3.6-27B GSM8K GRPO 训练脚本](frameworks/verl/qwen36_gsm8k/rl/run_grpo.sh)
+- [Qwen3.6-27B GRPO 21-step 验证报告](docs/qwen36_gsm8k_grpo_validation.md)
+
 ## 容器镜像
 
 默认使用 Ascend 维护的 verl 镜像：

@@ -7,7 +7,7 @@
 为减少手工输入差异，可以把实验变量模板复制到数据盘并固定保存：
 
 ```bash
-cp frameworks/verl/qwen36_gsm8k/experiment.env.example \
+cp frameworks/verl/qwen36_gsm8k/sft/experiment.env.example \
   /mnt/data/qwen36-gsm8k-sft-v1.env
 source /mnt/data/qwen36-gsm8k-sft-v1.env
 ```
@@ -63,7 +63,7 @@ HCCL AllReduce。单机 rendezvous 默认绑定 `127.0.0.1:29500`，避免依赖
 cd /workspace
 export MODEL_PATH=/mnt/model/Qwen3.6-27B
 
-python3 frameworks/verl/qwen36_gsm8k/preflight.py \
+python3 frameworks/verl/qwen36_gsm8k/sft/preflight.py \
   --model-path "$MODEL_PATH"
 ```
 
@@ -81,14 +81,14 @@ python3 frameworks/verl/qwen36_gsm8k/preflight.py \
 ```bash
 export DATA_DIR=/mnt/data/gsm8k_sft
 
-python3 frameworks/verl/qwen36_gsm8k/prepare_gsm8k_sft.py \
+python3 frameworks/verl/qwen36_gsm8k/sft/prepare_gsm8k_sft.py \
   --output-dir "$DATA_DIR"
 ```
 
 联网时脚本默认下载 `openai/gsm8k`。如果已经准备了本地 Hugging Face 数据集：
 
 ```bash
-python3 frameworks/verl/qwen36_gsm8k/prepare_gsm8k_sft.py \
+python3 frameworks/verl/qwen36_gsm8k/sft/prepare_gsm8k_sft.py \
   --dataset-path /mnt/data/gsm8k_sft_raw \
   --output-dir "$DATA_DIR"
 ```
@@ -96,7 +96,7 @@ python3 frameworks/verl/qwen36_gsm8k/prepare_gsm8k_sft.py \
 需要严格固定远程数据版本时，传入 Hugging Face commit hash：
 
 ```bash
-python3 frameworks/verl/qwen36_gsm8k/prepare_gsm8k_sft.py \
+python3 frameworks/verl/qwen36_gsm8k/sft/prepare_gsm8k_sft.py \
   --dataset-revision <commit-hash> \
   --output-dir "$DATA_DIR"
 ```
@@ -138,7 +138,7 @@ prompt、ground truth 和 reward 元数据，并不是本 SFT 入口要求的训
 ## 3. 验收数据和 token 长度
 
 ```bash
-python3 frameworks/verl/qwen36_gsm8k/preflight.py \
+python3 frameworks/verl/qwen36_gsm8k/sft/preflight.py \
   --model-path "$MODEL_PATH" \
   --data-dir "$DATA_DIR" \
   --max-length 2048
@@ -153,7 +153,7 @@ split 的 token 长度分布和最长样本行号。默认训练上限是 2048�
 只想抽样检查时可以设置 `--sample-size`；`-1` 表示检查全部样本：
 
 ```bash
-python3 frameworks/verl/qwen36_gsm8k/preflight.py \
+python3 frameworks/verl/qwen36_gsm8k/sft/preflight.py \
   --model-path "$MODEL_PATH" \
   --data-dir "$DATA_DIR" \
   --sample-size 1000 \
@@ -168,7 +168,7 @@ python3 frameworks/verl/qwen36_gsm8k/preflight.py \
 export EVAL_DIR=/mnt/data/evals/qwen36_gsm8k
 mkdir -p "$EVAL_DIR"
 
-python3 frameworks/verl/qwen36_gsm8k/evaluate_gsm8k.py \
+python3 frameworks/verl/qwen36_gsm8k/sft/evaluate_gsm8k.py \
   --model-path "$MODEL_PATH" \
   --tokenizer-path "$MODEL_PATH" \
   --data-file "$DATA_DIR/test.parquet" \
@@ -206,7 +206,7 @@ cd /workspace
 export SAVE_PATH=/mnt/data/checkpoints/qwen36-27b-gsm8k-sft-dry-run
 
 DRY_RUN=1 DRY_RUN_STEPS=2 \
-  bash frameworks/verl/qwen36_gsm8k/run_sft.sh
+  bash frameworks/verl/qwen36_gsm8k/sft/run_sft.sh
 ```
 
 `MODEL_PATH` 和 `DATA_DIR` 沿用前面已经通过预检的值，不要在这里换模型或重新生成数据。
@@ -229,14 +229,14 @@ model 和 extra，不保存 Adam optimizer；该 checkpoint 只用于验证保�
 
 ```bash
 OPTIMIZER_OFFLOAD=true DRY_RUN=1 \
-  bash frameworks/verl/qwen36_gsm8k/run_sft.sh
+  bash frameworks/verl/qwen36_gsm8k/sft/run_sft.sh
 ```
 
 如果仍然 OOM，再尝试：
 
 ```bash
 PARAM_OFFLOAD=true OPTIMIZER_OFFLOAD=true ACTIVATION_OFFLOAD=true DRY_RUN=1 \
-  bash frameworks/verl/qwen36_gsm8k/run_sft.sh
+  bash frameworks/verl/qwen36_gsm8k/sft/run_sft.sh
 ```
 
 offload 会显著降低速度，因此不应在尚未观察显存占用前全部开启。
@@ -249,7 +249,7 @@ offload 会显著降低速度，因此不应在尚未观察显存占用前全部
 export SAVE_PATH=/mnt/data/checkpoints/qwen36-27b-gsm8k-sft-v1
 
 DRY_RUN=0 RESUME_MODE=disable TOTAL_EPOCHS=1 LEARNING_RATE=1e-6 \
-  bash frameworks/verl/qwen36_gsm8k/run_sft.sh
+  bash frameworks/verl/qwen36_gsm8k/sft/run_sft.sh
 ```
 
 `RESUME_MODE=disable` 是默认值。如果 `SAVE_PATH` 已包含 `global_step_*`，脚本会拒绝启动，
@@ -260,7 +260,7 @@ DRY_RUN=0 RESUME_MODE=disable TOTAL_EPOCHS=1 LEARNING_RATE=1e-6 \
 test -f "$SAVE_PATH/latest_checkpointed_iteration.txt"
 
 DRY_RUN=0 RESUME_MODE=auto TOTAL_EPOCHS=1 LEARNING_RATE=1e-6 \
-  bash frameworks/verl/qwen36_gsm8k/run_sft.sh
+  bash frameworks/verl/qwen36_gsm8k/sft/run_sft.sh
 ```
 
 默认只在每个 epoch 结束时保存；1 epoch 训练若在首次保存前中断，没有 checkpoint 可以续训。
@@ -279,7 +279,7 @@ world size 或目录名写死：
 ```bash
 export MERGED_MODEL=/mnt/model/qwen36-27b-gsm8k-sft-v1-hf
 
-bash frameworks/verl/qwen36_gsm8k/merge_fsdp_checkpoint.sh
+bash frameworks/verl/qwen36_gsm8k/sft/merge_fsdp_checkpoint.sh
 ```
 
 合并脚本从 `$SAVE_PATH/latest_checkpointed_iteration.txt` 读取最后一个 step，检查
@@ -296,7 +296,7 @@ bash frameworks/verl/qwen36_gsm8k/merge_fsdp_checkpoint.sh
 ## 8. 训练后评测与配对比较
 
 ```bash
-python3 frameworks/verl/qwen36_gsm8k/evaluate_gsm8k.py \
+python3 frameworks/verl/qwen36_gsm8k/sft/evaluate_gsm8k.py \
   --model-path "$MERGED_MODEL" \
   --tokenizer-path "$MODEL_PATH" \
   --data-file "$DATA_DIR/test.parquet" \
@@ -304,7 +304,7 @@ python3 frameworks/verl/qwen36_gsm8k/evaluate_gsm8k.py \
   --tensor-parallel-size 8 \
   --no-enable-thinking
 
-python3 frameworks/verl/qwen36_gsm8k/compare_gsm8k.py \
+python3 frameworks/verl/qwen36_gsm8k/sft/compare_gsm8k.py \
   --before "$EVAL_DIR/before.jsonl" \
   --after "$EVAL_DIR/after.jsonl" \
   --output-file "$EVAL_DIR/comparison.json"
@@ -381,12 +381,12 @@ df -h /mnt/data
 
 ```bash
 python3 -m unittest discover \
-  -s frameworks/verl/qwen36_gsm8k/tests \
+  -s frameworks/verl/qwen36_gsm8k/sft/tests \
   -p 'test_*.py'
 
-python3 -m py_compile frameworks/verl/qwen36_gsm8k/*.py
-bash -n frameworks/verl/qwen36_gsm8k/run_sft.sh
-bash -n frameworks/verl/qwen36_gsm8k/merge_fsdp_checkpoint.sh
+python3 -m py_compile frameworks/verl/qwen36_gsm8k/sft/*.py
+bash -n frameworks/verl/qwen36_gsm8k/sft/run_sft.sh
+bash -n frameworks/verl/qwen36_gsm8k/sft/merge_fsdp_checkpoint.sh
 ```
 
 这些检查只保护数据转换、答案提取、配对统计和 shell 语法；依赖版本、NPU、HCCL、模型加载和
