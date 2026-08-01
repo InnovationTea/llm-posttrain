@@ -55,4 +55,5 @@ python3 -m verl.trainer.main_ppo \
   trainer.max_actor_ckpt_to_keep=1 \
   trainer.test_freq=-1 \
   trainer.critic_warmup=0 \
+  "$@" \
   2>&1 | tee verl_grpo.log
