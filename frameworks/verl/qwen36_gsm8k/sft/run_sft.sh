@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 PROJECT_ROOT=$(cd -- "${SCRIPT_DIR}/../../../.." && pwd)
+VERL_DIR=$(cd -- "${SCRIPT_DIR}/../.." && pwd)
 
 MODEL_PATH=${MODEL_PATH:-/mnt/model/Qwen3.6-27B}
 DATA_DIR=${DATA_DIR:-/mnt/data/gsm8k_sft}
@@ -35,6 +36,9 @@ MAX_CKPT_TO_KEEP=${MAX_CKPT_TO_KEEP:-2}
 RESUME_MODE=${RESUME_MODE:-disable}
 LOG_DIR=${LOG_DIR:-/mnt/data/logs/qwen36-27b-gsm8k-sft}
 LOG_FILE=${LOG_FILE:-}
+TENSORBOARD_DIR=${TENSORBOARD_DIR:-/mnt/data/logs/verl_gsm8k_sft_1}
+TENSORBOARD_HOST=${TENSORBOARD_HOST:-0.0.0.0}
+TENSORBOARD_PORT=${TENSORBOARD_PORT:-6006}
 
 export HYDRA_FULL_ERROR=1
 export TOKENIZERS_PARALLELISM=false
@@ -50,7 +54,6 @@ if [[ -z "${LOG_FILE}" ]]; then
   LOG_FILE="${LOG_DIR}/${run_mode}-$(date +%Y%m%d-%H%M%S)-$$.log"
 fi
 mkdir -p -- "$(dirname -- "${LOG_FILE}")"
-exec > >(tee -a "${LOG_FILE}") 2>&1
 
 echo "Run started at $(date '+%Y-%m-%d %H:%M:%S %z')"
 echo "Persistent log: ${LOG_FILE}"
@@ -161,10 +164,10 @@ fi
 
 case "${LOGGER}" in
   console)
-    logger_config='["console"]'
+    logger_config='["console","tensorboard"]'
     ;;
   wandb)
-    logger_config='["console","wandb"]'
+    logger_config='["console","tensorboard","wandb"]'
     ;;
   *)
     echo "Error: LOGGER must be 'console' or 'wandb', got: ${LOGGER}" >&2
@@ -195,7 +198,12 @@ echo "============================================================"
 
 cd "${PROJECT_ROOT}"
 
-torchrun \
+TENSORBOARD_DIR="${TENSORBOARD_DIR}" \
+  TENSORBOARD_HOST="${TENSORBOARD_HOST}" \
+  TENSORBOARD_PORT="${TENSORBOARD_PORT}" \
+  bash "${VERL_DIR}/dashboard/run_tensorboard.sh"
+
+nohup torchrun \
   --nnodes=1 \
   --node_rank=0 \
   --nproc_per_node="${NPROC_PER_NODE}" \
@@ -248,4 +256,11 @@ torchrun \
   trainer.nnodes=1 \
   "trainer.n_gpus_per_node=${NPROC_PER_NODE}" \
   "${extra_args[@]}" \
-  "$@"
+  "$@" \
+  >"${LOG_FILE}" 2>&1 &
+training_pid=$!
+
+echo "SFT training started in the background."
+echo "PID:          ${training_pid}"
+echo "Training log: ${LOG_FILE}"
+echo "TensorBoard:  http://${TENSORBOARD_HOST}:${TENSORBOARD_PORT}"

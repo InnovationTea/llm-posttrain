@@ -209,6 +209,11 @@ DRY_RUN=1 DRY_RUN_STEPS=2 \
   bash frameworks/verl/qwen36_gsm8k/sft/run_sft.sh
 ```
 
+脚本会自动启动 TensorBoard，并将训练放到后台后立即返回。使用命令输出中的
+`Training log` 路径跟踪进度；开始正式训练前，必须确认 dry-run 进程已经结束且日志中两个
+optimizer step 均成功完成。默认事件目录为 `/mnt/data/logs/verl_gsm8k_sft_1`，可通过
+`TENSORBOARD_DIR=/mnt/data/logs/<experiment>` 在启动命令前覆盖。
+
 `MODEL_PATH` 和 `DATA_DIR` 沿用前面已经通过预检的值，不要在这里换模型或重新生成数据。
 在当前 16 个逻辑 NPU、`SP_SIZE=1` 的默认配置下，脚本应打印：DP=16、global batch=32、
 local batch=2、micro batch=1；dry-run 使用 64 条训练数据、32 条验证数据，完成 2 个
@@ -251,6 +256,9 @@ export SAVE_PATH=/mnt/data/checkpoints/qwen36-27b-gsm8k-sft-v1
 DRY_RUN=0 RESUME_MODE=disable TOTAL_EPOCHS=1 LEARNING_RATE=1e-6 \
   bash frameworks/verl/qwen36_gsm8k/sft/run_sft.sh
 ```
+
+命令返回只表示后台 worker 已启动。进入 checkpoint 合并和训练后评测前，必须确认输出中的
+训练 PID 已结束，并检查 `Training log` 末尾没有异常。
 
 `RESUME_MODE=disable` 是默认值。如果 `SAVE_PATH` 已包含 `global_step_*`，脚本会拒绝启动，
 防止把旧实验误当成新实验。已有 checkpoint 需要续训时，保持模型、数据、batch 和
@@ -385,8 +393,11 @@ python3 -m unittest discover \
   -p 'test_*.py'
 
 python3 -m py_compile frameworks/verl/qwen36_gsm8k/sft/*.py
+python3 -m unittest frameworks.verl.tests.test_launch_scripts -v
 bash -n frameworks/verl/qwen36_gsm8k/sft/run_sft.sh
 bash -n frameworks/verl/qwen36_gsm8k/sft/merge_fsdp_checkpoint.sh
+bash -n frameworks/verl/dashboard/run_tensorboard.sh
+bash -n frameworks/verl/kill.sh
 ```
 
 这些检查只保护数据转换、答案提取、配对统计和 shell 语法；依赖版本、NPU、HCCL、模型加载和

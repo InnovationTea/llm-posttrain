@@ -8,6 +8,7 @@ from pathlib import Path
 
 
 SCRIPT_DIR = Path(__file__).resolve().parents[1]
+VERL_DIR = SCRIPT_DIR.parents[1]
 sys.path.insert(0, str(SCRIPT_DIR))
 
 import compare_gsm8k  # noqa: E402
@@ -62,6 +63,24 @@ class ComparisonTests(unittest.TestCase):
         )
         self.assertEqual(improved, [0])
         self.assertEqual(regressed, [1])
+
+
+class BackgroundLauncherTests(unittest.TestCase):
+    def test_training_scripts_launch_training_directly_in_background(self) -> None:
+        scripts = {
+            "sft": SCRIPT_DIR / "run_sft.sh",
+            "grpo": VERL_DIR / "qwen36_gsm8k" / "rl" / "run_grpo.sh",
+        }
+        expected_commands = {"sft": "nohup torchrun", "grpo": "nohup python3"}
+
+        for name, path in scripts.items():
+            with self.subTest(script=name):
+                content = path.read_text(encoding="utf-8")
+                self.assertNotIn("VERL_BACKGROUND_WORKER", content)
+                self.assertNotIn("exec torchrun", content)
+                self.assertNotIn("exec python3", content)
+                self.assertIn(expected_commands[name], content)
+                self.assertIn('>"${LOG_FILE}" 2>&1 &', content)
 
 
 if __name__ == "__main__":
