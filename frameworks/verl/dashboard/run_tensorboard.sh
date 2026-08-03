@@ -12,29 +12,13 @@ if ! [[ "${TENSORBOARD_PORT}" =~ ^[1-9][0-9]*$ ]] || ((TENSORBOARD_PORT > 65535)
   exit 1
 fi
 
-port_in_use=false
-if command -v ss >/dev/null 2>&1; then
-  if ss -ltnH "sport = :${TENSORBOARD_PORT}" 2>/dev/null | grep -q .; then
-    port_in_use=true
-  fi
-elif command -v lsof >/dev/null 2>&1; then
-  if lsof -nP -iTCP:"${TENSORBOARD_PORT}" -sTCP:LISTEN 2>/dev/null | grep -q .; then
-    port_in_use=true
-  fi
-else
-  echo "Error: either ss or lsof is required to check TENSORBOARD_PORT." >&2
-  exit 1
-fi
-
-if [[ "${port_in_use}" == "true" ]]; then
+if command -v pgrep >/dev/null 2>&1; then
   tensorboard_processes=$(pgrep -af '[t]ensorboard' || true)
   if grep -Eq -- "--port([=[:space:]])${TENSORBOARD_PORT}([[:space:]]|$)" <<<"${tensorboard_processes}"; then
     echo "TensorBoard is already running on port ${TENSORBOARD_PORT}. Reusing it."
     echo "The existing process keeps its original --logdir; requested: ${TENSORBOARD_DIR}"
     exit 0
   fi
-  echo "Error: port ${TENSORBOARD_PORT} is occupied by a non-TensorBoard process." >&2
-  exit 1
 fi
 if ! command -v tensorboard >/dev/null 2>&1; then
   echo "Error: tensorboard executable was not found in PATH." >&2

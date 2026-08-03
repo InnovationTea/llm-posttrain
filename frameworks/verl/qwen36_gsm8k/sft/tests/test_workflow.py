@@ -82,6 +82,17 @@ class BackgroundLauncherTests(unittest.TestCase):
                 self.assertIn(expected_commands[name], content)
                 self.assertIn('>"${LOG_FILE}" 2>&1 &', content)
 
+    def test_tensorboard_launcher_does_not_require_port_inspection_tools(self) -> None:
+        content = (VERL_DIR / "dashboard" / "run_tensorboard.sh").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertNotIn("command -v ss", content)
+        self.assertNotIn("command -v lsof", content)
+        self.assertNotIn("either ss or lsof is required", content)
+        self.assertIn("nohup tensorboard", content)
+        self.assertIn('kill -0 "${tensorboard_pid}"', content)
+
 
 if __name__ == "__main__":
     unittest.main()
