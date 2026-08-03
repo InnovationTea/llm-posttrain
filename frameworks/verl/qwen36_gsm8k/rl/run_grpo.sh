@@ -3,6 +3,25 @@ set -euo pipefail
 
 # Validated on one A3 server exposing 16 logical Ascend NPU devices.
 
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+VERL_DIR=$(cd -- "${SCRIPT_DIR}/../.." && pwd)
+
+LOG_DIR=${LOG_DIR:-/mnt/data/logs/qwen36-27b-gsm8k-grpo}
+LOG_FILE=${LOG_FILE:-}
+TENSORBOARD_DIR=${TENSORBOARD_DIR:-/mnt/data/logs/verl_gsm8k_grpo_1}
+TENSORBOARD_HOST=${TENSORBOARD_HOST:-0.0.0.0}
+TENSORBOARD_PORT=${TENSORBOARD_PORT:-6006}
+
+if [[ -z "${LOG_FILE}" ]]; then
+  LOG_FILE="${LOG_DIR}/train-$(date +%Y%m%d-%H%M%S)-$$.log"
+fi
+mkdir -p -- "$(dirname -- "${LOG_FILE}")"
+
+TENSORBOARD_DIR="${TENSORBOARD_DIR}" \
+  TENSORBOARD_HOST="${TENSORBOARD_HOST}" \
+  TENSORBOARD_PORT="${TENSORBOARD_PORT}" \
+  bash "${VERL_DIR}/dashboard/run_tensorboard.sh"
+
 export PYTHONUNBUFFERED=1
 export HYDRA_FULL_ERROR=1
 export ASCEND_RT_VISIBLE_DEVICES=0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
@@ -10,7 +29,7 @@ export ASCEND_RT_VISIBLE_DEVICES=0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
 # 避免与 vLLM Ascend CaMem 冲突。
 unset PYTORCH_NPU_ALLOC_CONF || true
 
-python3 -m verl.trainer.main_ppo \
+nohup python3 -m verl.trainer.main_ppo \
   data.train_files=/mnt/data/gsm8k/train.parquet \
   data.val_files=/mnt/data/gsm8k/test.parquet \
   data.train_batch_size=8 \
@@ -46,7 +65,7 @@ python3 -m verl.trainer.main_ppo \
   algorithm.adv_estimator=grpo \
   algorithm.use_kl_in_reward=False \
   trainer.device=npu \
-  trainer.logger=console \
+  'trainer.logger=["console","tensorboard"]' \
   trainer.n_gpus_per_node=16 \
   trainer.nnodes=1 \
   trainer.val_before_train=False \
@@ -55,4 +74,11 @@ python3 -m verl.trainer.main_ppo \
   trainer.max_actor_ckpt_to_keep=1 \
   trainer.test_freq=-1 \
   trainer.critic_warmup=0 \
-  2>&1 | tee verl_grpo.log
+  "$@" \
+  >"${LOG_FILE}" 2>&1 &
+training_pid=$!
+
+echo "GRPO training started in the background."
+echo "PID:          ${training_pid}"
+echo "Training log: ${LOG_FILE}"
+echo "TensorBoard:  http://${TENSORBOARD_HOST}:${TENSORBOARD_PORT}"
