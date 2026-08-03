@@ -17,8 +17,9 @@ TENSORBOARD_PORT=6006 \
 ```
 
 脚本使用 `nohup tensorboard --logdir ...` 后台启动并打印 PID、URL 和服务日志路径。
-如果指定端口已有 TensorBoard，脚本直接复用；已有服务仍使用它启动时的 `--logdir`。
-如果端口被其他程序占用，脚本报错退出。
+脚本不依赖 `ss` 或 `lsof`。如果能从进程列表识别到同端口的 TensorBoard，脚本直接复用；
+已有服务仍使用它启动时的 `--logdir`。其他情况会直接尝试启动 TensorBoard；如果端口冲突或
+启动失败，脚本报错并给出 `${TENSORBOARD_DIR}/tensorboard.log` 日志路径。
 
 ## 后台进程与日志
 
