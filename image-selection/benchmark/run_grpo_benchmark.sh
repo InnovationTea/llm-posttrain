@@ -4,24 +4,22 @@ set -euo pipefail
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 PROJECT_ROOT=$(cd -- "${SCRIPT_DIR}/../.." && pwd)
 
-IMAGE_ID=${IMAGE_ID:-}
+BENCHMARK_ID=${BENCHMARK_ID:-}
+IMAGE_REF=${IMAGE_REF:-unknown}
+IMAGE_DIGEST=${IMAGE_DIGEST:-unknown}
+CONTAINER_NAME=${CONTAINER_NAME:-unknown}
 MODEL_PATH=${MODEL_PATH:-/mnt/model/Qwen3.6-27B}
 DATA_DIR=${DATA_DIR:-/mnt/data/gsm8k}
 RESULT_ROOT=${RESULT_ROOT:-/mnt/data/image-benchmark}
 BENCHMARK_STEPS=${BENCHMARK_STEPS:-20}
 WARMUP_STEPS=${WARMUP_STEPS:-5}
-RUN_ID=${RUN_ID:-$(date +%Y%m%d-%H%M%S)}
 
-if [[ -z "${IMAGE_ID}" ]]; then
-  echo "Error: IMAGE_ID is required, for example IMAGE_ID=verl-v0.8.0" >&2
+if [[ -z "${BENCHMARK_ID}" ]]; then
+  echo "Error: BENCHMARK_ID is required; run this executor through run_image_benchmark.sh." >&2
   exit 2
 fi
-if [[ ! "${IMAGE_ID}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
-  echo "Error: IMAGE_ID may contain only letters, numbers, '.', '_' and '-'." >&2
-  exit 2
-fi
-if [[ ! "${RUN_ID}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
-  echo "Error: RUN_ID may contain only letters, numbers, '.', '_' and '-'." >&2
+if [[ ! "${BENCHMARK_ID}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+  echo "Error: BENCHMARK_ID contains unsupported characters." >&2
   exit 2
 fi
 if ! [[ "${BENCHMARK_STEPS}" =~ ^[1-9][0-9]*$ ]]; then
@@ -41,10 +39,10 @@ if [[ ! -f "${DATA_DIR}/train.parquet" || ! -f "${DATA_DIR}/test.parquet" ]]; th
   exit 2
 fi
 
-RUN_DIR="${RESULT_ROOT}/${IMAGE_ID}/grpo/${RUN_ID}"
+RUN_DIR="${RESULT_ROOT}/${BENCHMARK_ID}/grpo"
 if [[ -e "${RUN_DIR}" ]]; then
   echo "Error: result directory already exists: ${RUN_DIR}" >&2
-  echo "Set a different RUN_ID or remove the old directory explicitly." >&2
+  echo "Use a new host-level BENCHMARK_ID." >&2
   exit 2
 fi
 mkdir -p -- "${RUN_DIR}"
@@ -62,8 +60,10 @@ trap finish EXIT
 
 {
   echo "benchmark=grpo"
-  echo "image_id=${IMAGE_ID}"
-  echo "run_id=${RUN_ID}"
+  echo "benchmark_id=${BENCHMARK_ID}"
+  echo "image_ref=${IMAGE_REF}"
+  echo "image_digest=${IMAGE_DIGEST}"
+  echo "container_name=${CONTAINER_NAME}"
   echo "started_at=$(date --iso-8601=seconds)"
   echo "hostname=$(hostname)"
   echo "model_path=${MODEL_PATH}"
