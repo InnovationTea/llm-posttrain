@@ -8,6 +8,15 @@ Ascend 910 上进行 LLM SFT 与 RL 实验的训练仓库。当前以 `verl` 为
 - [Qwen3.6-27B GSM8K GRPO 训练脚本](frameworks/verl/qwen36_gsm8k/rl/run_grpo.sh)
 - [Qwen3.6-27B GRPO 21-step 验证报告](docs/qwen36_gsm8k_grpo_validation.md)
 
+## CreateMyCard
+
+- [业务总览](frameworks/verl/create_my_card/README.md)
+- [Design Compact 数据生产与转换流程](frameworks/verl/create_my_card/data_pipeline/README.md)
+- [veRL SFT 数据构建与训练](frameworks/verl/create_my_card/sft/README.md)
+- [数据合同与质检文档](docs/create_my_card/data-quality-spec.md)
+
+全部主题入口见 [docs/README.md](docs/README.md)。
+
 ## 容器镜像
 
 默认使用 Ascend 维护的 verl 镜像：
